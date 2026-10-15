@@ -1,0 +1,29 @@
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=ThesisText,line width=.65pt,rounded corners=2pt,
+    align=center,text=ThesisText,font=\small,inner sep=7pt},
+  arrow/.style={-{Stealth[length=2mm]},draw=ThesisText,line width=.8pt}]
+\node[box,fill=ThesisLilac,text width=12.8cm] (common) at (0,0)
+  {共同节点信息 $z_{i,t}$\\
+  HAR、剔除自身的公共RV、边际风险、风险汇总与有效性标志};
+\node[box,fill=ThesisMist,text width=5.5cm,minimum height=1.6cm] (own) at (-3.6,-1.8)
+  {共同自身分支\\HAR线性项 $+$ 自身MLP\\两模型使用同样的输入与形式};
+\node[box,fill=ThesisSalmon,text width=5.5cm,minimum height=1.6cm] (edge) at (3.6,-1.8)
+  {逐边消息分支\\来源节点、目标节点与边特征\\sigmoid门控 $+$ 度数均值};
+\node[box,dashed,fill=ThesisMatched,text width=5.5cm,minimum height=1.35cm] (matched) at (-3.6,-3.8)
+  {\texttt{B06\_MATCHED}\\共同自身分支 $\rightarrow$ 正值预测};
+\node[box,fill=ThesisFull,text width=5.5cm,minimum height=1.35cm] (full) at (3.6,-3.8)
+  {\texttt{M01\_FULL}\\共同自身分支 $+$ 逐边分支\\$\rightarrow$ 正值预测};
+\draw[arrow] (common.south -| own.north) -- (own.north);
+\draw[arrow] (common.south -| edge.north) -- (edge.north);
+\draw[arrow] (own) -- (matched);
+\draw[arrow] (edge) -- (full);
+\draw[arrow] (own.south) -- ++(0,-.12) -| ([xshift=-12mm]full.north);
+\node[box,fill=ThesisPeach,text width=12.8cm] at (0,-5.55)
+  {统一比较：输出链接、训练损失、时间切分、评价域与失败回退\\
+  底层参数对照另含 $t$ 与 $t-5$ 的归档参数及同样的有效性标志};
+\end{tikzpicture}
+\caption{完整模型与风险汇总基线的信息匹配结构。虚线框标记无逐边分支的基线；颜色辅助区分模型，不编码实证优劣。}
+\label{fig:matched_architecture}
+\end{figure}

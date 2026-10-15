@@ -1,0 +1,256 @@
+\chapter{理论基础与模型构建}
+\section{预测任务、信息集与已实现测度}
+\subsection{预测对象与信息边界}
+设研究股票集合为$\mathcal V$，其规模为$N$；$t$表示共同交易日历上的一个预测起点，而不是某只股票的第$t$条有效记录。用$\F_t$表示在日$t$信息完成后、按照数据与版本协议允许使用的信息集。本文预测未来$h$个交易日的日均已实现方差：
+\begin{equation}\label{eq:target}
+y_{i,t}^{(h)}=\frac1h\sum_{\ell=1}^{h}\RV_{i,t+\ell},\qquad h\in\{1,5,22\}.
+\end{equation}
+三个期限分别使用直接预测模型。$h=5$和$h=22$并非只预测第5天或第22天，也不是将未来收益率相加后求平方。若目标窗口内任何一天的测度不可用，则该股票该起点的完整标签不可用，不改成剩余有效日的平均值。
+
+本文沿用开题中的“已实现波动率”名称，但$\RV$在数学上是收益率平方和，即方差量。其平方根才具有与收益标准差相同的量纲。除明确说明的展示指标外，预测目标不年化，所有收益均使用小数单位。
+
+\subsection{会话内已实现方差与四次变差}
+将每个交易日分为经认证的上午和下午交易会话，记为$s\in\{\mathrm{AM},\mathrm{PM}\}$。设$P_{i,t,s,0}$为可追溯的会话起始锚点，$P_{i,t,s,k}$为第$k$个五分钟采样边界的价格。高频对数收益和主测度定义为
+\begin{align}
+ r_{i,t,s,k}&=\log P_{i,t,s,k}-\log P_{i,t,s,k-1},\label{eq:intradayreturn}\\
+ \RV_{i,t}&=\sum_s\sum_{k=1}^{M_s}r_{i,t,s,k}^{2}.\label{eq:rv}
+\end{align}
+主测度不额外包含隔夜和午间重开跳变；收盘集合竞价是否在最后边界内，由数据合同明确。对于完整、规则的会话内采样集合，记$M=\sum_s M_s$，定义
+\begin{equation}\label{eq:rq}
+\RQ_{i,t}=\frac M3\sum_s\sum_{k=1}^{M_s}r_{i,t,s,k}^{4}.
+\end{equation}
+式\eqref{eq:rq}沿用规则采样四次变差的形式\cite{bpq2016}。若大量区间缺失、起始锚点不规则或额外并入隔夜长间隔，不应只调整$M$就假定保留相同的测量误差解释。本文将此类情况单独标记或使用独立扩展测度。
+
+为检验时段选择，另保存午间收益$r^{L}_{i,t}$和经调整口径确认的隔夜收益$r^{O}_{i,t}$。扩展测度可分别写为$\RV_{i,t}+(r^L_{i,t})^2$及进一步加入$(r^O_{i,t})^2$。这些变量具有不同的覆盖范围，在实验注册中使用不同名称，不在同一目标列混用。
+
+\subsection{HAR 特征与基准模型}
+以共同交易日历定义三个尺度的历史特征：
+\begin{equation}\label{eq:harfeatures}
+x^{H}_{i,t}=\left(\RV_{i,t},\ \frac15\sum_{\ell=0}^{4}\RV_{i,t-\ell},\ \frac1{22}\sum_{\ell=0}^{21}\RV_{i,t-\ell}\right)^{\!\top}.
+\end{equation}
+传统线性 HAR 基准为
+\begin{equation}\label{eq:har}
+y_{i,t}^{(h)}=b_{i,h}+\beta_h^{\top}x^{H}_{i,t}+u_{i,t}^{(h)}.
+\end{equation}
+本文同时保存逐股 OLS 与具有股票截距的合并估计版本，注册时区分参数共享方式。任何模型都不能通过删除中间缺失日，将式\eqref{eq:harfeatures}变成最近5或22个“有记录日”的均值。
+
+HARQ 的简约版本在日度项上加入四次变差交互\cite{bpq2016}：
+\begin{align}
+y_{i,t}^{(h)}={}&b_{i,h}+\beta_{d,h}\RV_{i,t}
+ +\beta_{w,h}\RV_{i,t}^{(w)}+\beta_{m,h}\RV_{i,t}^{(m)}\nonumber\\
+&+\beta_{q,h}\big(\sqrt{\RQ_{i,t}}-\overline{\sqrt{\RQ_i}}_{\mathrm{train}}\big)\RV_{i,t}
++u_{i,t}^{(h)}.\label{eq:harq}
+\end{align}
+其中中心化均值只由当次训练样本估计。式\eqref{eq:harq}的日度形式对应原文的简约 HARQ，较长期限采用同特征直接预测，是本文的实施扩展。HARQ 与使用 QLIKE 训练的 HAR 在模型注册中分别命名。
+
+\section{日收益边际分布与动态依赖}
+\subsection{风险输入的收益口径}
+记$R_{i,t}$为风险模型所用日度收益。公司日线提供的前收字段被报告为当日交易所参考价$B_{i,t}$，不保证等于前一交易日未复权收盘价。本文的候选主输入为
+\begin{equation}\label{eq:reference_return}
+R^{\mathrm{ref}}_{i,t}=\log\frac{P^{\mathrm{close}}_{i,t}}{B_{i,t}},\qquad B_{i,t}>0.
+\end{equation}
+该输入必须经过普通日和公司行动日核对后启用。它表示相对参考价的价格变化，不直接称为投资者总回报。不同调整收益口径进入独立稳健性实验，不在同一风险历史中静默拼接。风险模型包含的日间与隔夜信息可以不同于会话内 RV 的覆盖范围；这是输入与目标的任务安排，不表示二者是同一风险量。
+
+\subsection{AR-GARCH-t 边际模型}
+对股票$i$建立AR(1)-GARCH(1,1)边际：
+\begin{align}
+R_{i,t}&=c_i+\phi_iR_{i,t-1}+\epsilon_{i,t},\label{eq:ar}\\
+\epsilon_{i,t}&=\sigma_{i,t}\xi_{i,t},\qquad \xi_{i,t}\sim G_{\nu_i},\label{eq:innov}\\
+\sigma_{i,t}^{2}&=\omega_i+a_i\epsilon_{i,t-1}^{2}+b_i\sigma_{i,t-1}^{2}.\label{eq:garch}
+\end{align}
+$G_{\nu}$表示单位方差Student-t分布，而$T_{\nu}$表示通常的Student-t分布函数，两者满足
+\begin{equation}\label{eq:unit_t}
+G_{\nu}(x)=T_{\nu}\!\left(x\sqrt{\frac{\nu}{\nu-2}}\right),\qquad
+G_{\nu}^{-1}(u)=\sqrt{\frac{\nu-2}{\nu}}T_{\nu}^{-1}(u),\quad \nu>2.
+\end{equation}
+约束为$\omega_i>0$、$a_i,b_i\geq0$、$a_i+b_i<1$及$|\phi_i|<1$。式\eqref{eq:garch}保留标准 GARCH 的尺度动态\cite{bollerslev1986}，t边际用于本研究对厚尾形状的参数化。
+
+在起点$t$，令$m_{i,t+1|t}=c_i+\phi_iR_{i,t}$，则下一期条件边际分布为
+\begin{equation}\label{eq:forecast_margin}
+F_{i,t+1|t}(x)=G_{\nu_i}\!\left(\frac{x-m_{i,t+1|t}}{\sigma_{i,t+1|t}}\right).
+\end{equation}
+拟合和过滤只使用$\F_t$中的观测。历史概率积分变换为$U_{i,s}=G_{\nu_i}(\xi_{i,s})$。单位方差t与普通t、边际自由度与copula自由度均分别保存，不能因软件接口名称相近而混用。
+
+\subsection{二元 DCC 型 t-Copula}
+每个无序股票对$\{i,j\}$只拟合一个联合依赖模型。记$\boldsymbol\xi_{ij,s}=(\xi_{j,s},\xi_{i,s})^\top$，以边际标准化创新驱动DCC型递推：
+\begin{align}
+Q_{ij,s+1}&=(1-a_{ij}-b_{ij})\bar Q_{ij}
++a_{ij}\boldsymbol\xi_{ij,s}\boldsymbol\xi_{ij,s}^{\top}+b_{ij}Q_{ij,s},\label{eq:dcc}\\
+\mathcal R_{ij,s+1}&=D_{ij,s+1}^{-1/2}Q_{ij,s+1}D_{ij,s+1}^{-1/2},\label{eq:dccnorm}
+\end{align}
+其中$D$为$Q$的对角矩阵，$\bar Q$在当前历史估计窗口内确定且保持正定，$a_{ij},b_{ij}\geq0$、$a_{ij}+b_{ij}<1$。动态相关的基本思想来自DCC\cite{engle2002}；本研究选定的是以边际创新驱动、以copula似然拟合依赖参数的两阶段二元版本。
+
+令$\rho_{ij,t}=[\mathcal R_{ij,t+1|t}]_{12}$，即$t$时点给出的下一期相关状态，$\nu_{c,ij}$为copula自由度。定义
+\begin{equation}\label{eq:tcopula}
+C_{ij,t}(u,v)=T_{\nu_{c,ij},\rho_{ij,t}}
+\left(T_{\nu_{c,ij}}^{-1}(u),T_{\nu_{c,ij}}^{-1}(v)\right),
+\end{equation}
+其中第一坐标始终为来源$j$，第二坐标为目标$i$。依赖参数目标为有效历史样本的copula对数密度和，密度为二元t密度除以两个对应一元t密度的乘积。参数约每21个交易日重新估计，期间只用新观测过滤状态。
+
+因各二元模型独立估计，其相关参数拼接后不一定形成合法的$N$维相关矩阵。因此，本文使用的是关系级图特征，而不是已经认证的全维联合收益分布。不在缺少进一步约束时直接用该矩阵构造最小方差组合。
+
+\subsection{缺失观测与历史图}
+停牌或数据缺口不意味着收益创新为零，也不能把缺口两侧的收益压缩成相邻交易日。本文初版采用分段过滤：在连续有效日收益片段内过滤状态，每段设置独立初值及22个观测的预热；参数目标由各片段预热后的有效项组成。二元依赖只在双方创新均有效的连续片段上递推。最近连续片段不足时，风险边标记为不可用，而不是填零。
+
+该规则是一项保守的分段条件估计设计，不声称等价于对所有缺失收益的精确联合似然。窗口内有效项门槛与边覆盖损失在开发阶段报告，并在测试之前冻结。历史风险图按起点归档，当前重新估计的参数不得回写更早日期的图，以免使训练输入包含当时尚未出现的信息。
+
+\section{CoVaR 定义与条件分位数计算}
+\subsection{点条件 CoVaR 与增量形式}
+给定$\alpha,\beta\in(0,1)$，点条件分位数定义为
+\begin{equation}\label{eq:point_covar}
+q_{i\leftarrow j,t}(\beta\mid\alpha)
+=Q_{\beta}\!\left(R_{i,t+1}\mid U_{j,t+1}=\alpha;\F_t\right).
+\end{equation}
+此处条件于连续变量的一个点，通过模型的正规条件分布定义，不是直接从历史样本中寻找“收益恰好等于VaR”的记录。采用$\alpha=\beta=0.05$的候选主设定，增量为
+\begin{align}
+\Delta^-_{i\leftarrow j,t}&=q_{i\leftarrow j,t}(\beta\mid\alpha)
+-q_{i\leftarrow j,t}(\beta\mid0.5),\label{eq:delta_down}\\
+\Delta^+_{i\leftarrow j,t}&=q_{i\leftarrow j,t}(1-\beta\mid1-\alpha)
+-q_{i\leftarrow j,t}(1-\beta\mid0.5).\label{eq:delta_up}
+\end{align}
+式\eqref{eq:delta_down}与式\eqref{eq:delta_up}比较困境与中位数点参考态，沿用CoVaR增量的思想\cite{adrian2016}。定义有符号下行放大强度$s_{i\leftarrow j,t}=-\Delta^-_{i\leftarrow j,t}$。$s>0$表示该定义下目标下尾更低，$s<0$表示相对参考态的缓释，不能统一取绝对值后均称为风险放大。
+
+\subsection{t-Copula 的闭式计算}
+省略股票对和时间下标，记$\nu_c$为copula自由度，$a_{\alpha}=T_{\nu_c}^{-1}(\alpha)$。由二元t条件分布可得
+\begin{align}
+z_{\beta\mid\alpha}
+&=\rho a_{\alpha}+\sqrt{\frac{(\nu_c+a_{\alpha}^{2})(1-\rho^{2})}{\nu_c+1}}
+T_{\nu_c+1}^{-1}(\beta),\label{eq:conditional_t}\\
+v_{\beta\mid\alpha}&=T_{\nu_c}(z_{\beta\mid\alpha}),\label{eq:prob_position}\\
+q_{i\leftarrow j,t}(\beta\mid\alpha)
+&=m_{i,t+1|t}+\sigma_{i,t+1|t}G_{\nu_i}^{-1}(v_{\beta\mid\alpha}).\label{eq:quantile_back}
+\end{align}
+式\eqref{eq:conditional_t}在copula的普通t坐标上运算，式\eqref{eq:quantile_back}才返回目标的单位方差t边际。由同一组$\rho,\nu_c$和相应目标边际得到反向条件量，不重新拟合另一套二元copula来制造方向差。
+
+这种闭式计算避免将大量蒙特卡洛模拟作为日度构图的必要步骤。其数值实现需要检查分位函数单调性、参数边界和极端概率；裁剪仅为端点数值保护，不作为人为压低尾部风险的措施。
+
+\subsection{事件条件稳健性}
+点条件与整个尾部事件是不同风险量\cite{mainik2012}。对于下尾事件$U_j\leq\alpha$，目标概率位置$v^-_{\alpha,\beta}$满足
+\begin{equation}\label{eq:event_lower}
+\frac{C_{ij,t}(\alpha,v^-_{\alpha,\beta})}{\alpha}=\beta.
+\end{equation}
+对于上尾事件$U_j\geq1-\alpha$，其$(1-\beta)$分位位置满足
+\begin{equation}\label{eq:event_upper}
+\frac{v^+_{\alpha,\beta}-C_{ij,t}(1-\alpha,v^+_{\alpha,\beta})}{\alpha}=1-\beta.
+\end{equation}
+求得$v$后经式\eqref{eq:forecast_margin}的逆变换返回收益坐标。事件版本下，下尾参考态设为$U_j\leq0.5$，上尾参考态设为$U_j\geq0.5$，并分别计算增量。本文将此版本命名为“尾部事件相对同侧半分布”，不能称为中位数点参考态。两种版本在实验和文件中分开保存。
+
+\section{风险边的结构性质与解释边界}
+\subsection{上下尾的镜像关系}
+\begin{proposition}[对称设定的镜像性质]\label{prop:symmetry}
+若copula具有中心对称性及连续条件密度，条件分位数唯一，目标边际连续且关于其条件位置$m_i$对称，且上下尾使用镜像概率和相同中位数点参考态，则
+\begin{equation}\label{eq:symmetry}
+\Delta^+_{i\leftarrow j,t}=-\Delta^-_{i\leftarrow j,t}.
+\end{equation}
+\end{proposition}
+标准t-Copula与本文的对称t边际满足相应结构条件\cite{demarta2005}。证明见附录。该结果意味着在忠实原型中，上、下行正向表示的风险强度重复。本文保留两列用于数值审计，但不把重复列解释为两个独立的市场机制。允许尾部非对称的模型需要另行指定，例如相应的非对称copula扩展\cite{patton2006}。
+
+\subsection{边际尺度与条件方向}
+\begin{proposition}[同形边际的尺度分解]\label{prop:scale}
+若二元copula可交换，两端条件边际属于同一标准化形状的位置尺度族，且使用相同分位数定义，则存在对称系数$k_{ij,t}=k_{ji,t}$，使
+\begin{equation}\label{eq:scale_decomposition}
+s_{i\leftarrow j,t}=\sigma_{i,t+1|t}k_{ij,t},\qquad
+s_{j\leftarrow i,t}=\sigma_{j,t+1|t}k_{ij,t}.
+\end{equation}
+\end{proposition}
+因此定义标准化强度
+\begin{equation}\label{eq:standard_strength}
+\bar s_{i\leftarrow j,t}=\frac{s_{i\leftarrow j,t}}{\sigma_{i,t+1|t}}.
+\end{equation}
+命题\ref{prop:scale}的条件下，双向$\bar s$相等。若边际自由度不同，标准化之后仍可能保留边际形状引起的差异。因此，本文同时保存原始尺度、标准化尺度与边际自由度，而不单凭原始矩阵非对称认定存在独立的方向结构。
+
+此外，同一目标的所有原始正权重都乘有相同$\sigma_i$时，按该目标的权重和归一化会抵消这一尺度；逐目标top-$k$还可能将原本对称的权重矩阵变成非对称邻接支持。这两种变化来自处理规则，必须与估计出的条件关系区分。
+
+\subsection{独立性与零相关}
+独立copula为$C(u,v)=uv$，其点条件和事件条件目标分布均不受来源状态影响，故对应增量为零。但有限自由度t-Copula即使$\rho=0$，也不一般等于独立copula\cite{demarta2005}。程序的独立性测试因此使用显式独立模型，而不是把相关参数设为零后期待所有风险增量都消失。
+
+上述命题是本文所选设定的代数性质与解释工具，不是关于中国市场不存在风险传导的命题，也不作为新的金融理论创新加以夸大。
+
+\section{风险汇总与逐边表示}
+\subsection{风险网络与边特征}
+在起点$t$，从估计有效且下行放大强度为正的候选关系中，为每个目标股票选取至多$k$条入边。主开发候选为$k=5$，按$\bar s_{i\leftarrow j,t}$排序，平局按固定证券键处理。定义
+\begin{equation}\label{eq:adjacency}
+A_{ij,t}=\mathbf1\{j\in\mathcal N_i(t)\},\qquad A_{ii,t}=0,
+\end{equation}
+即邻接矩阵的行表示目标、列表示来源。核心边向量为
+\begin{equation}\label{eq:edgefeatures}
+e_{j\to i,t}=
+\left(s_{i\leftarrow j,t},\ \bar s_{i\leftarrow j,t},\ \bar s_{j\leftarrow i,t},\
+\bar s_{i\leftarrow j,t}-\bar s_{i\leftarrow j,t-5}\right)^{\!\top}.
+\end{equation}
+第五个交易日前的边必须来自当时归档版本，不用当前参数重算过去。差分项缺失时保留指示并按统一规则处理，不能将其解释为零变化。各边分量只用训练样本进行数值缩放，不以测试分位数截断。
+
+\subsection{风险输入与输出汇总}
+记$\mathcal J_{i,t}^{\mathrm{in}}$和$\mathcal J_{i,t}^{\mathrm{out}}$为所有估计有效的入向、出向关系，$[x]_+=\max(x,0)$。以有效边均值定义
+\begin{align}
+I_{i,t}&=\frac{1}{|\mathcal J_{i,t}^{\mathrm{in}}|}\sum_{j\in\mathcal J_{i,t}^{\mathrm{in}}}[s_{i\leftarrow j,t}]_+,\label{eq:inaggregate}\\
+O_{i,t}&=\frac{1}{|\mathcal J_{i,t}^{\mathrm{out}}|}\sum_{j\in\mathcal J_{i,t}^{\mathrm{out}}}[s_{j\leftarrow i,t}]_+.\label{eq:outaggregate}
+\end{align}
+标准化汇总$\bar I,\bar O$以$\bar s$替换$s$。风险汇总输入$a_{i,t}$包含这四个量和入、出向有效边比例；无有效边时汇总设为缺失并提供指示，不能将“没有估计”与“估计出零风险”混淆。另设与主图相同支持下的汇总版本，以控制图稀疏化的影响。
+
+这些是本文明确自定义的汇总基线，并非对已有EMRS公式的猜测性复现。对负向缓释关系保留原始记录，必要时作独立汇总稳健性；主放大网络不将负值绝对化。
+
+\subsection{为什么汇总可能不足}
+汇总表示压缩了边与来源股票之间的对应关系。考虑两来源节点1、2和两目标节点3、4，边权分别为$(a,b)$与$(b,a)$。同时交换两目标的两个入边权后，每个节点的总入、出权重都不变，但目标3的加权邻居状态由$ax_1+bx_2$变为$bx_1+ax_2$。二者差为$(a-b)(x_1-x_2)$。
+
+这个构造说明风险总量并不在数学上决定加权邻居状态，因而逐边表示存在保留更多信息的可能。它不是实际股票风险网络的构造证明，更不保证新增信息在有限样本中能带来预测收益。是否值得保留仍由等信息汇总模型与逐边模型的样本外差值决定。
+
+\section{Edge-aware CoVaR-GNN-HAR 预测模型}
+\subsection{节点信息与两种模型版本}
+为对应开题架构，设置最小版本，节点仅使用HAR特征。为进行严格归因，另设完整匹配版本，其节点向量$z_{i,t}$包含：HAR特征、剔除自身的样本市场与可认证行业平均RV、边际条件风险变量、同样的风险汇总$a_{i,t}$及缺失指示。若历史行业不可认证，同一比较组全部删去行业变量。
+
+记$s_{i,c}>0$为当次训练截止$c$之前估计的股票RV均值，HAR输入以其缩放。其他变量使用训练统计量标准化。两个版本分别注册为\code{M01_BASIC}和\code{M01_FULL}；核心“超过风险汇总”的比较以完整匹配版本为准，不将不同节点信息集混成一个模型结果。
+
+图\ref{fig:matched_architecture}展示完整模型与匹配基线的共同输入和差异。它是模型结构示意，不包含真实市场样本或预测表现；所有经验差值均留待第五章填入。
+\input{figures/matched_architecture}
+
+\subsection{边条件消息传递}
+将节点输入映射到$d$维表示：
+\begin{equation}\label{eq:node_encoder}
+h_{i,t}=\relu(W_z z_{i,t}+b_z).
+\end{equation}
+对来源$j$到目标$i$，计算逐维门控和消息：
+\begin{align}
+a_{j\to i,t}^{\mathrm{gate}}&=\sigmoid\!\left(f_{\theta}([h_{i,t},h_{j,t},e_{j\to i,t}])\right),\label{eq:gate}\\
+m_{i,t}&=\frac1{\max(1,|\mathcal N_i(t)|)}
+\sum_{j\in\mathcal N_i(t)}a_{j\to i,t}^{\mathrm{gate}}\odot W_mh_{j,t}.\label{eq:message}
+\end{align}
+门控为$d$维向量，$\odot$表示逐元素乘法。主开发版本使用一层消息传递和$d=32$。采用sigmoid而非入边softmax，避免强制归一化在某些情况下抵消共同风险强度；该选择本身也通过替代聚合规则进行检验。没有有效邻居时$m_{i,t}=0$。
+
+式\eqref{eq:message}使边特征调节具体来源的消息，而不是先将边全部平均成一个节点数字。其一般思想属于边信息参与的消息传递框架\cite{gilmer2017}，本研究不宣称发明新的通用消息传递范式。
+
+\subsection{自身分支、图分支与正值预测}
+完整匹配版本的预测为
+\begin{align}
+\eta_{i,t}^{(h)}&=b_{i,h}+\beta_h^{\top}\widetilde x^{H}_{i,t}
++f_{\mathrm{own},h}(z_{i,t})+w_h^{\top}m_{i,t},\label{eq:linear_predictor}\\
+\widehat y_{i,t}^{(h)}&=s_{i,c}\left[\varepsilon+\softplus(\eta_{i,t}^{(h)})\right],\quad\varepsilon>0.\label{eq:positive_prediction}
+\end{align}
+$f_{\mathrm{own}}$为浅层自身非线性分支。匹配风险汇总基线\code{B06_MATCHED}具有完全相同的节点输入、$f_{\mathrm{own}}$、正值链接及训练协议，仅删除$w_h^\top m_{i,t}$。由此，完整模型与汇总基线的差别可以被明确定位为逐边分支。对参数数量差异另用等容量自身MLP控制，防止将容量收益当作关系收益。
+
+最小版本将节点信息限制为HAR，并令$f_{\mathrm{own}}=0$，保留自身线性结构与邻居分支。使用softplus的匹配模型不是与传统OLS完全相同的HAR，因此本文分别报告传统基线和统一架构对照。
+
+\subsection{底层参数与表示增量}
+给定当前及五个交易日前的$\rho$、copula自由度、两端$\sigma$和边际自由度，可以通过式\eqref{eq:conditional_t}—\eqref{eq:edgefeatures}确定性重建主边特征。因此，本文设置底层参数边模型，将这些当前及滞后量直接输入相同骨干，并保留相同有效性标志。
+
+只给当前参数不足以重建第五日差分项，因而不属于等信息比较。主模型若优于完整参数对照，支持的是风险坐标的归纳偏置或有限样本表示效率，而不是从确定性变换中获得了新的原始信息。
+
+\section{损失函数与估计目标}
+对$y>0$、$v>0$，定义
+\begin{align}
+L_{\mathrm{MSE}}(y,v)&=(y-v)^2,\label{eq:mse}\\
+L_{\mathrm{Q}}(y,v)&=\frac yv-\log\frac yv-1.\label{eq:qlike}
+\end{align}
+二者均以较小为优。训练时QLIKE可采用去除与预测无关项的形式$y/v+\log v$，但主表不将该可能为负的值与式\eqref{eq:qlike}混用。真实有效零标签另行报告，不能以停牌或缺失填零后进入正常评价。
+
+为改善数值尺度而逐股缩放输入与输出，不应隐含改变MSE的股票权重。主MSE在原始方差单位上计算，至多除以对所有股票一致的训练全局常数。QLIKE在同时缩放$y,v$后保持不变，故可在缩放坐标上稳定计算。
+
+需要强调，QLIKE并不把条件均值预测改成尾部分位数预测。在预测器不受函数类限制且相关期望存在时，对固定信息集的去常数风险求导，有
+\begin{equation}\label{eq:qlike_optimum}
+\frac{\partial}{\partial v}\E\left[\frac{y}{v}+\log v\mid\F_t\right]
+=\frac{v-\E[y\mid\F_t]}{v^2}.
+\end{equation}
+因此最优正值$v$仍是$\E[y\mid\F_t]$。不同损失在受限模型、有限样本和优化过程中可以表现不同，不能据此把本文称为未来RV尾部分位数预测模型。
+
+\section{本章小结}
+本章明确了三个对象：未来日均已实现方差、日收益条件分布构造的风险边，以及用边调节邻居信息的正值预测器。完整模型与汇总基线共享自身历史、公共信息和风险汇总，使逐边增量接受直接比较。尾部镜像、尺度分解和底层参数对照共同限定了风险边的解释范围。

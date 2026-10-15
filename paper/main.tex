@@ -1,0 +1,125 @@
+\documentclass[UTF8,zihao=-4,oneside,openany,fontset=fandol]{ctexbook}
+\usepackage[a4paper,left=30mm,right=25mm,top=27mm,bottom=27mm,headheight=16pt]{geometry}
+\usepackage{amsmath,amssymb,amsthm,bm,mathtools}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{enumitem,setspace,fancyhdr,graphicx}
+\usepackage{thesispalette}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage[backend=biber,style=gb7714-2015,sorting=none,doi=true,url=false,isbn=false]{biblatex}
+\addbibresource{references.bib}
+\usepackage[unicode,hidelinks]{hyperref}
+\usepackage{bookmark}
+\setstretch{1.35}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.2em}
+\setlength{\emergencystretch}{3em}
+\setlist{nosep,leftmargin=2em}
+\ctexset{chapter={format=\centering\heiti\zihao{3},beforeskip=10pt,afterskip=22pt},section={format=\heiti\zihao{4}},subsection={format=\heiti\zihao{-4}}}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[C]{\small 东华大学金融硕士学位论文·方法与实证设计初稿}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}
+\numberwithin{equation}{chapter}
+\newtheorem{proposition}{命题}[chapter]
+\renewcommand{\proofname}{证明}
+\newcommand{\RV}{\operatorname{RV}}
+\newcommand{\RQ}{\operatorname{RQ}}
+\newcommand{\CoVaR}{\operatorname{CoVaR}}
+\newcommand{\VaR}{\operatorname{VaR}}
+\newcommand{\E}{\mathbb E}
+\newcommand{\Prob}{\mathbb P}
+\newcommand{\F}{\mathcal F}
+\newcommand{\sigmoid}{\operatorname{sigmoid}}
+\newcommand{\softplus}{\operatorname{softplus}}
+\newcommand{\relu}{\operatorname{ReLU}}
+\newcommand{\Pending}[1]{\textbf{〔待实证填入：#1〕}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\begin{document}
+\begin{titlepage}
+\centering
+\vspace*{12mm}
+{\heiti\zihao{1} 东华大学\par}
+\vspace{14mm}
+{\heiti\zihao{2} 金融硕士学位论文\par}
+\vspace{19mm}
+{\heiti\zihao{2}\setstretch{1.5} 基于动态 Copula-CoVaR 溢出网络\\与边特征图神经网络的中国股票市场\\已实现波动率预测研究\par}
+\vspace{13mm}
+{\zihao{4} 方法与实证设计初稿\quad v0.2\par}
+\vfill
+\begin{tabular}{rl}
+姓\quad 名：& 吴立文\\[7pt]
+学\quad 号：& 2251435\\[7pt]
+专业方向：& 金融（MF）\\[7pt]
+指导教师：& \underline{\hspace{45mm}}\\[7pt]
+版本日期：& 2026 年 10 月 15 日
+\end{tabular}
+\vspace{15mm}
+\end{titlepage}
+\frontmatter
+\chapter*{初稿说明}\addcontentsline{toc}{chapter}{初稿说明}
+本稿依据《吴立文—开题报告》确定的题目、研究范围与六章结构展开，保留“高频测度—动态风险网络—边特征预测—样本外评价”的研究路线。第一至第四章提供可继续修订的正文、模型公式与实证设计；第五、第六章保留论证结构和待填结果位置，不以虚构数据或预设结论代替市场实验。
+
+截至本版，已读取并记录原始数据位置索引与五份数据字典的文件哈希，并通过授权只读探测取得部分实际字段结构；字典报告版本为\code{8a69cf1}。这些证据确认了原始文档与部分数据源的schema，严格公司行动等复杂视图的核查尚未全部完成。真实小样、约三十只股票的共同八至十年覆盖及历史字段的当时可见性仍未通过验收。具体样本、日期、质量统计、预测损失和检验结果均须在真实验收与实验之后回填。
+
+本稿将开题中尚未展开的公式具体化，并对条件方向与因果方向、标准 t-Copula 的尾部对称性、边际尺度造成的表观方向，以及风险汇总与逐边信息之间的关系作出明确区分。这些内容属于本次方法设计与推导，不应描述为开题已经给出的完整推导或已经观察到的市场发现。
+
+版式采用中文学位论文常见的封面、摘要、目录、六章正文、参考文献和附录结构；学校正式终稿模板及细则尚未提供，故本稿不是终稿格式认证版。内部数据连接地址、配置文件、账号与源库运维细节置于独立研究任务包，不进入公开论文正文。正式提交前需由作者核对全文、数据披露授权、参考文献及学校要求。
+
+\chapter*{摘\quad 要}\addcontentsline{toc}{chapter}{摘要}
+已实现波动率预测需要同时处理资产自身波动惯性与股票之间的横截面关联。异质自回归模型通过日、周、月三个时间尺度刻画波动率动态，图预测方法则进一步引入邻居股票的信息。然而，在加入风险网络之后，预测改善究竟来自共同市场信息、总体风险强度，还是来自具体股票之间保留下来的关系，仍需要通过信息匹配的对照加以区分。
+
+本文以中国股票市场为研究对象，构建动态 Copula-CoVaR 溢出网络与边特征图神经网络相结合的已实现波动率预测框架。高频价格用于构造五分钟采样的日度已实现方差及 HAR 特征；日收益通过 AR-GARCH-t 边际模型和二元动态 t-Copula 转化为条件尾部风险关系。模型在保留自身波动率分支的基础上，以逐边风险特征调节邻居消息，使预测器能够同时利用风险关系的强度、来源和时间变化。
+
+围绕这一框架，本文明确点条件与事件条件 CoVaR 的不同定义，分析对称设定下上下行风险通道的镜像关系，并分离边际波动尺度与标准化依赖关系对有向边的影响。实证设计以未来一、五、二十二个交易日的日均已实现方差为目标，设置传统 HAR/HARQ、公共信息增强模型、风险汇总模型、动态相关图和底层参数边模型等对照，在相同信息集、训练损失和评估样本上检验逐边条件化的增量价值。
+
+研究采用按时间推进的训练与预测协议，区分预测起点、标签成熟日期和数据版本；以日期级损失差、区块置信区间和模型比较检验评价结果。本文的研究重点不是预先假定复杂网络必然优越，而是建立从风险定义、关系表示到样本外证据的完整论证。数据覆盖与市场实证尚待验收完成，预测效果和适用范围将在正式结果产生后补充。
+
+\noindent\textbf{关键词：}已实现波动率；Copula-CoVaR；风险溢出网络；边特征图神经网络；HAR；样本外预测
+
+\chapter*{Abstract}\addcontentsline{toc}{chapter}{Abstract}
+Forecasting realized volatility requires distinguishing an asset's own volatility persistence from cross-sectional information. Heterogeneous autoregressive models capture multiple time scales, while graph-based models incorporate neighboring assets. However, improvements attributed to a risk network may instead arise from common market conditions, marginal risk scales, aggregate spillover measures, or the training objective.
+
+This study develops a forecasting framework that combines a dynamic Copula-CoVaR network with an edge-aware graph neural network for Chinese equities. Intraday prices are used to construct daily realized variance from five-minute returns. Daily returns are modeled using AR-GARCH-t margins and pairwise dynamic t-copulas. Conditional risk features then modulate messages from specific neighboring stocks, alongside a branch that preserves the target asset's own historical information.
+
+The methodological specification distinguishes point-conditioned CoVaR from tail-event conditioning. It derives the mirror relationship between upside and downside increments under symmetric assumptions and separates marginal scale effects from standardized dependence. The empirical protocol targets the average daily realized variance over the next one, five, and twenty-two trading days. Comparisons include HAR and HARQ models, common-information controls, aggregate-risk predictors, dynamic-correlation graphs, and models receiving the underlying copula and marginal parameters.
+
+Chronological training, label maturity, historical graph archives, and matched evaluation domains are specified before formal testing. Date-level paired losses and block-based inference are used to evaluate incremental predictive value. This draft presents the model and empirical design; live data coverage and market experiments remain to be verified. No empirical superiority is asserted before these experiments are completed.
+
+\noindent\textbf{Keywords:} realized volatility; Copula-CoVaR; risk network; edge-aware graph neural network; HAR; out-of-sample forecasting
+
+\tableofcontents
+\chapter*{主要符号说明}\addcontentsline{toc}{chapter}{主要符号说明}
+\begin{longtable}{p{0.24\textwidth}p{0.69\textwidth}}
+\toprule 符号 & 含义\\\midrule\endhead
+$i,j,t,h$ & 目标股票、来源股票、交易日起点、预测期限\\
+$P_{i,t,s,k}$ & 股票$i$在交易日$t$、会话$s$第$k$个采样边界的价格\\
+$r_{i,t,s,k},R_{i,t}$ & 会话内高频对数收益、风险模型所用日度收益\\
+$\RV_{i,t},\RQ_{i,t}$ & 日度已实现方差、规则采样已实现四次变差\\
+$y^{(h)}_{i,t},\widehat y^{(h)}_{i,t}$ & 未来$h$个交易日日均方差及其预测\\
+$\F_t$ & 在预测起点$t$按约定可使用的信息集\\
+$\sigma_{i,t+1|t},\nu_i$ & 下一期边际条件波动尺度、边际Student-t自由度\\
+$\rho_{ij,t},\nu_{c,ij}$ & 起点$t$预测的二元copula相关参数、copula自由度\\
+$C_{ij,t}(u,v)$ & 第一坐标为来源$j$、第二坐标为目标$i$的条件copula\\
+$q_{i\leftarrow j,t}(\beta\mid\alpha)$ & 来源分位位置为$\alpha$时目标的$\beta$条件分位数\\
+$\Delta^-_{i\leftarrow j,t},s_{i\leftarrow j,t}$ & 下行增量CoVaR、有符号的下行放大强度\\
+$\bar s_{i\leftarrow j,t}$ & 以目标条件波动尺度标准化的下行强度\\
+$A_t,\mathcal N_i(t),e_{j\to i,t}$ & 邻接矩阵、目标入邻居集合、逐边特征\\
+$a_{i,t},z_{i,t},m_{i,t}$ & 风险汇总特征、节点输入、聚合消息\\
+$c,s_{i,c}$ & 当次训练截止日、仅由当次训练样本估计的数值尺度\\
+$\ell_{m,t},d_t$ & 模型$m$的日期级损失、基线减主模型的损失差\\
+\bottomrule
+\end{longtable}
+\mainmatter
+\include{chapters/01_introduction}
+\include{chapters/02_literature}
+\include{chapters/03_model}
+\include{chapters/04_data_design}
+\include{chapters/05_results}
+\include{chapters/06_conclusion}
+\printbibliography[heading=bibintoc,title={参考文献}]
+\appendix
+\include{chapters/appendix}
+\end{document}

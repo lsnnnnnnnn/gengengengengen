@@ -1,0 +1,17 @@
+{
+  "source": "User-supplied reference image; printed HEX values take precedence over inconsistent RGB labels",
+  "palette": ["#B6B3D6", "#CFCCE3", "#D5D3DE", "#D5D1D1", "#F6DFD6", "#F8B2A2", "#F1837A", "#E9687A"],
+  "model_styles": {
+    "B06_MATCHED": {"color": "#B6B3D6", "linestyle": "--", "marker": "s"},
+    "M01_FULL": {"color": "#E9687A", "linestyle": "-", "marker": "o"},
+    "B13": {"color": "#F8B2A2", "linestyle": "-.", "marker": "^"}
+  },
+  "text_color": "#262626",
+  "background": "#FFFFFF",
+  "rules": [
+    "Use labels, line styles or markers in addition to color.",
+    "Use pale colors for fills and dark text for labels; never encode significance by color alone.",
+    "Use a stable model-color mapping across horizons and losses.",
+    "Do not plot placeholders as observations, zero values or completed experiments."
+  ]
+}
